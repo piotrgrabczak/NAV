@@ -1,0 +1,219 @@
+OBJECT Codeunit 50001 Sales Unit Price Mgt.
+{
+  OBJECT-PROPERTIES
+  {
+    Date=28.02.18;
+    Time=08:35:28;
+    Modified=Yes;
+    Version List=78506,79499;
+  }
+  PROPERTIES
+  {
+    OnRun=BEGIN
+          END;
+
+  }
+  CODE
+  {
+    VAR
+      Internals@1000000001 : Record 50013;
+      PricesInCurrency@1000000003 : Boolean;
+      Currency@1000000002 : Record 4;
+      CurrencyFactor@1000000000 : Decimal;
+      ExchRateDate@1000000004 : Date;
+      GLSetup@1000000005 : Record 98;
+      CurrencyCode@1000000006 : Code[10];
+      UnitPrice@1000000007 : Decimal;
+      BarrattsSetup@1000000008 : Record 50014;
+
+    PROCEDURE UpdateUnitPrice@1000000000(VAR SalesLine@1000000000 : Record 37);
+    BEGIN
+      WITH SalesLine DO BEGIN
+
+        IF "Internals 1" <> '' THEN BEGIN
+          Internals.GET("Internals 1");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 2" <> '' THEN BEGIN
+          Internals.GET("Internals 2");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 3" <> '' THEN BEGIN
+          Internals.GET("Internals 3");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 4" <> '' THEN BEGIN
+          Internals.GET("Internals 4");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 5" <> '' THEN BEGIN
+          Internals.GET("Internals 5");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 6" <> '' THEN BEGIN
+          Internals.GET("Internals 6");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 7" <> '' THEN BEGIN
+          Internals.GET("Internals 7");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF x <> y THEN
+            x := y;
+
+        IF "Internals 8" <> '' THEN BEGIN
+          Internals.GET("Internals 8");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 9" <> '' THEN BEGIN
+          Internals.GET("Internals 9");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 10" <> '' THEN BEGIN
+          Internals.GET("Internals 10");
+          AddInternalPrice(SalesLine);
+        END;
+
+        IF "Internals 11" <> '' THEN BEGIN
+          Internals.GET("Internals 11");
+          AddInternalPrice(SalesLine);
+        END;
+
+        //<<79499 20180228
+        BarrattsSetup.GET;
+        IF Refit THEN BEGIN
+          SalesLine.VALIDATE("Unit Price",SalesLine."Unit Price" + GetItemPrice(SalesLine,BarrattsSetup."Refit Item"));
+        END;
+        //>>79499 20180228
+
+        IF "Number Mirrors Doors" <> 0 THEN
+          CalcMirrorDoorsPrice(SalesLine);
+
+
+      END;
+    END;
+
+    LOCAL PROCEDURE AddInternalPrice@1000000028(VAR SalesLine@1000000000 : Record 37);
+    BEGIN
+      SalesLine.VALIDATE("Unit Price",SalesLine."Unit Price" + GetInternalPrice(SalesLine));
+    END;
+
+    LOCAL PROCEDURE GetInternalPrice@1000000001(SalesLine@1000000000 : Record 37) : Decimal;
+    VAR
+      Item@1000000001 : Record 27;
+      SalesPriceCalcMgt@1000000002 : Codeunit 7000;
+      SalesHeader@1000000003 : Record 36;
+      TempSalesLine@1000000004 : TEMPORARY Record 37;
+    BEGIN
+      CLEAR(Item);
+      CLEAR(SalesHeader);
+      TempSalesLine.DELETEALL;
+      IF SalesHeader.GET(SalesLine."Document Type",SalesLine."Document No.") AND Item.GET(Internals."Item No.") THEN BEGIN
+        TempSalesLine.INIT;
+        TempSalesLine.COPY(SalesLine);
+        TempSalesLine."Document Type" := SalesHeader."Document Type";
+        TempSalesLine."Document No." := SalesHeader."No.";
+        TempSalesLine.Type := TempSalesLine.Type::Item;
+        TempSalesLine."Line No." := 10000;
+        TempSalesLine."No." := Item."No.";
+        SalesPriceCalcMgt.FindSalesLinePrice(SalesHeader,TempSalesLine,TempSalesLine.FIELDNO("No."));
+      END;
+
+      EXIT(TempSalesLine."Unit Price");
+    END;
+
+    LOCAL PROCEDURE CalcMirrorDoorsPrice@1000000002(VAR SalesLine@1000000001 : Record 37);
+    VAR
+      SalesHeader@1000000000 : Record 36;
+      MirrorDoorsPrice@1000000002 : Decimal;
+    BEGIN
+      IF SalesHeader.GET(SalesLine."Document Type",SalesLine."Document No.") THEN BEGIN
+        SetCurrency(SalesHeader."Currency Code",SalesHeader."Currency Factor",SalesHeaderExchDate(SalesHeader));
+        //79499 20180215 MSI BEGIN
+        IF SalesHeader."Customer Price Group" = BarrattsSetup."Division Price List" THEN
+          MirrorDoorsPrice := BarrattsSetup."Mirror Doors Price Division" * SalesLine."Number Mirrors Doors";
+        IF SalesHeader."Customer Price Group" = BarrattsSetup."RRP Price List" THEN
+          MirrorDoorsPrice := BarrattsSetup."Mirror Doors Price RRP" * SalesLine."Number Mirrors Doors";
+        //MirrorDoorsPrice := BarrattsSetup."Mirror Doors Price Division" * SalesLine."Number Mirrors Doors";
+        //79499 20180215 MSI BEGIN
+        ConvertPriceLCYToFCY(SalesHeader."Currency Code",MirrorDoorsPrice);
+        SalesLine.VALIDATE(SalesLine."Unit Price", SalesLine."Unit Price" + MirrorDoorsPrice);
+      END;
+    END;
+
+    LOCAL PROCEDURE SetCurrency@18(CurrencyCode2@1003 : Code[10];CurrencyFactor2@1001 : Decimal;ExchRateDate2@1002 : Date);
+    BEGIN
+      PricesInCurrency := CurrencyCode2 <> '';
+      IF PricesInCurrency THEN BEGIN
+        Currency.GET(CurrencyCode2);
+        Currency.TESTFIELD("Unit-Amount Rounding Precision");
+        CurrencyFactor := CurrencyFactor2;
+        ExchRateDate := ExchRateDate2;
+      END ELSE
+        GLSetup.GET;
+    END;
+
+    LOCAL PROCEDURE SalesHeaderExchDate@25(SalesHeader@1000 : Record 36) : Date;
+    BEGIN
+      WITH SalesHeader DO BEGIN
+        IF "Posting Date" <> 0D THEN
+          EXIT("Posting Date");
+        EXIT(WORKDATE);
+      END;
+    END;
+
+    LOCAL PROCEDURE ConvertPriceLCYToFCY@6(CurrencyCode@1005 : Code[10];VAR UnitPrice@1001 : Decimal);
+    VAR
+      CurrExchRate@1000 : Record 330;
+    BEGIN
+      IF PricesInCurrency THEN BEGIN
+          UnitPrice :=
+            CurrExchRate.ExchangeAmtLCYToFCY(ExchRateDate,Currency.Code,UnitPrice,CurrencyFactor);
+        UnitPrice := ROUND(UnitPrice,Currency."Unit-Amount Rounding Precision");
+      END ELSE
+        UnitPrice := ROUND(UnitPrice,GLSetup."Unit-Amount Rounding Precision");
+    END;
+
+    LOCAL PROCEDURE GetItemPrice@1000000003(SalesLine@1000000000 : Record 37;ItemNo@1000000005 : Code[20]) : Decimal;
+    VAR
+      Item@1000000001 : Record 27;
+      SalesPriceCalcMgt@1000000002 : Codeunit 7000;
+      SalesHeader@1000000003 : Record 36;
+      TempSalesLine@1000000004 : TEMPORARY Record 37;
+    BEGIN
+      CLEAR(Item);
+      CLEAR(SalesHeader);
+      TempSalesLine.DELETEALL;
+      IF SalesHeader.GET(SalesLine."Document Type",SalesLine."Document No.") AND Item.GET(ItemNo) THEN BEGIN
+        TempSalesLine.INIT;
+        TempSalesLine.COPY(SalesLine);
+        TempSalesLine."Document Type" := SalesHeader."Document Type";
+        TempSalesLine."Document No." := SalesHeader."No.";
+        TempSalesLine.Type := TempSalesLine.Type::Item;
+        TempSalesLine."Line No." := 10000;
+        TempSalesLine."No." := Item."No.";
+    
+        SalesPriceCalcMgt.FindSalesLinePrice(SalesHeader,TempSalesLine,TempSalesLine.FIELDNO("No."));
+      END;
+
+      EXIT(TempSalesLine."Unit Price");
+    END;
+
+    BEGIN
+    {
+      78506 20171211 MSI Sales Order Fields - New object
+      79499 20180215 MSI Code change mirror doors pricing
+    }
+    END.
+  }
+}
+
