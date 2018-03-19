@@ -13,6 +13,7 @@ OBJECT Codeunit 50001 Sales Unit Price Mgt.
           END;
 
    x = 3
+   x = y
 
   }
   CODE
