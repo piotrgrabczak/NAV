@@ -12,6 +12,8 @@ OBJECT Codeunit 50001 Sales Unit Price Mgt.
     OnRun=BEGIN
           END;
 
+   x = 3
+
   }
   CODE
   {
